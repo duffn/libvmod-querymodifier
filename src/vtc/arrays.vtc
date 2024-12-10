@@ -1,0 +1,33 @@
+varnishtest "Test querymodifier vmod for arrays"
+
+server s1 {
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/feed/?arr[]=arr1&arr[]=arr2"
+} -start
+
+varnish v1 -vcl+backend {
+	import std;
+	import querymodifier;
+
+	sub vcl_hash {
+		std.syslog(180, "querymodifier before: " + req.url);
+		set req.url = querymodifier.modifyparams(url=req.url, params="arr[]", exclude_params=false);
+		std.syslog(180, "querymodifier after: " + req.url);
+	}
+} -start
+
+client c1 {
+	txreq -url "/feed/?arr[]=arr1&arr[]=arr2&notarr[]=1&notarr[]=2"
+	rxresp
+	expect resp.status == 200
+
+	# This request will be cached as only `arr[]` is included.
+	txreq -url "/feed/?arr[]=arr1&arr[]=arr2&other[]=1&something=2"
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect n_object == 1
+varnish v1 -expect cache_miss == 1
+varnish v1 -expect cache_hit == 1

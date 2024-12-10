@@ -1,0 +1,9 @@
+services:
+  vmod:
+    build: &build
+      context: .
+      dockerfile: Dockerfile
+
+  test:
+    build: *build
+    command: make check

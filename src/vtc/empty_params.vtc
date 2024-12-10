@@ -1,0 +1,33 @@
+varnishtest "Test querymodifier vmod for empty params"
+
+server s1 {
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/feed/"
+} -start
+
+varnish v1 -vcl+backend {
+	import std;
+	import querymodifier;
+
+	sub vcl_recv {
+		std.syslog(180, "querymodifier before: " + req.url);
+		set req.url = querymodifier.modifyparams(url=req.url, params="q,id", exclude_params=false);
+		std.syslog(180, "querymodifier after: " + req.url);
+	}
+} -start
+
+client c1 {
+	txreq -url "/feed/?"
+	rxresp
+	expect resp.status == 200
+
+	# This one is cached.
+	txreq -url "/feed/"
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect n_object == 1
+varnish v1 -expect cache_miss == 1
+varnish v1 -expect cache_hit == 1

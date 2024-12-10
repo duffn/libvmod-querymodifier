@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        varnish_version:
+          - "7.5"
+          - "7.6"
+
+    concurrency:
+      group: ${{ github.ref_name != 'main' && format('{0}-{1}-{2}', github.workflow, github.ref, matrix.varnish_version) || github.sha }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: docker compose build --build-arg "VARNISH_VERSION=${{ matrix.varnish_version }}"
+
+      - run: docker compose run test

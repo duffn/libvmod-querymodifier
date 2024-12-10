@@ -1,0 +1,23 @@
+varnishtest "Test querymodifier vmod for missing URL"
+
+server s1 {
+	rxreq
+	txresp -body "OK1"
+} -start
+
+varnish v1 -vcl+backend {
+	import std;
+	import querymodifier;
+
+	sub vcl_hash {
+		std.syslog(180, "querymodifier before: " + req.url);
+		set req.url = querymodifier.modifyparams(url="", params="id", exclude_params=false);
+		std.syslog(180, "querymodifier after: " + req.url);
+	}
+} -start
+
+client c1 {
+	txreq -url "/feed/?id=1"
+	rxresp
+	expect resp.status == 503
+} -run
