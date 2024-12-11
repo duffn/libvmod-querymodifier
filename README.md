@@ -19,7 +19,10 @@ List the parameters that you would like to have _remain_ in the URL. All other q
 
 ```
 import querymodifier;
+
 set req.url = querymodifier.modifyparams(url=req.url, params="search,id", exclude_params=false);
+# Or use the convenience function, `includeparams`.
+set req.url = querymodifier.includeparams(url=req.url, params="search,id");
 
 # Original URL: example.com/?search=name&ts=123456789&id=987654321
 # Modified URL: example.com/?search=name&id=987654321
@@ -31,7 +34,10 @@ List the parameters that you would like to have _removed_ from the URL. All othe
 
 ```
 import querymodifier;
+
 set req.url = querymodifier.modifyparams(url=req.url, params="ts,v", exclude_params=true);
+# Or use the convenience function, `excludeparams`.
+set req.url = querymodifier.excludparams(url=req.url, params="ts,v");
 
 # Original URL: example.com/?search=name&ts=123456789&v=123456789&id=987654321
 # Modified URL: example.com/?search=name&id=987654321
