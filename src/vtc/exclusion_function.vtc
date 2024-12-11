@@ -1,0 +1,42 @@
+varnishtest "Test querymodifier vmod for proper exclusion of matching parameters using the excludeparams function"
+
+server s1 {
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/feed/"
+
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/blog?before_date=2024-11-23T00%3A00%3A00.000Z"
+} -start
+
+varnish v1 -vcl+backend {
+	import std;
+	import querymodifier;
+
+	sub vcl_hash {
+		std.syslog(180, "querymodifier before: " + req.url);
+		set req.url = querymodifier.excludeparams(url=req.url, params="ts,v,date");
+		std.syslog(180, "querymodifier after: " + req.url);
+	}
+} -start
+
+client c1 {
+	txreq -url "/feed/?ts=1730210988319"
+	rxresp
+	expect resp.status == 200
+
+	# This one will be cached as all of the query params are excluded.
+	txreq -url "/feed/?ts=1730210988319&v=1730210988319&date=1730210988319"
+	rxresp
+	expect resp.status == 200
+
+	txreq -url "/blog?ts=1730210988319&v=1730210988319&date=1730210988319&before_date=2024-11-23T00%3A00%3A00.000Z"
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect n_object == 2
+varnish v1 -expect cache_miss == 2
+varnish v1 -expect cache_hit == 1
+

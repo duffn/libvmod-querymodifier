@@ -1,0 +1,41 @@
+varnishtest "Test querymodifier vmod for proper inclusion of matching parameters using the includeparams function"
+
+server s1 {
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/feed/?q=search"
+
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/blog?id=1234&q=search"
+} -start
+
+varnish v1 -vcl+backend {
+	import std;
+	import querymodifier;
+
+	sub vcl_recv {
+		std.syslog(180, "querymodifier before: " + req.url);
+		set req.url = querymodifier.includeparams(url=req.url, params="q,id");
+		std.syslog(180, "querymodifier after: " + req.url);
+	}
+} -start
+
+client c1 {
+	txreq -url "/feed/?q=search"
+	rxresp
+	expect resp.status == 200
+
+	# This one is cached as `ts` is excluded.
+	txreq -url "/feed/?q=search&ts=123456789"
+	rxresp
+	expect resp.status == 200
+
+	txreq -url "/blog?id=1234&ts=1730210988319&v=1730210988319&date=1730210988319&q=search"
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect n_object == 2
+varnish v1 -expect cache_miss == 2
+varnish v1 -expect cache_hit == 1
