@@ -16,3 +16,25 @@ Example
     ::
 
         set req.url = querymodifier.modifyparams(req.url, "ts,v", true);
+
+$Function STRING excludeparams(STRING url, STRING params)
+
+Description
+    The function accepts a comma separated list of parameter names and returns the request URL with
+    the provided parameters removed from the query string.
+
+Example
+    ::
+
+        set req.url = querymodifier.excludeparams(req.url, "ts,v");
+
+$Function STRING includeparams(STRING url, STRING params)
+
+Description
+    The function accepts a comma separated list of parameter names and returns the request URL with
+    the provided parameters included in the query string.
+
+Example
+    ::
+
+        set req.url = querymodifier.includeparams(req.url, "ts,v");

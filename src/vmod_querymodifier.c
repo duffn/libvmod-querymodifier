@@ -222,3 +222,25 @@ VCL_STRING vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
 
     return ws_uri;
 }
+
+/**
+ * Include the specified query parameters in the URL.
+ * @param ctx The Varnish context.
+ * @param uri The URL to modify.
+ * @param params The query parameters to include.
+ * @return The modified URL.
+ */
+VCL_STRING vmod_includeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
+    return vmod_modifyparams(ctx, uri, params, 0);
+}
+
+/**
+ * Exclude the specified query parameters from the URL.
+ * @param ctx The Varnish context.
+ * @param uri The URL to modify.
+ * @param params The query parameters to exclude.
+ * @return The modified URL.
+ */
+VCL_STRING vmod_excludeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
+    return vmod_modifyparams(ctx, uri, params, 1);
+}
