@@ -1,4 +1,4 @@
-varnishtest "Test querymodifier vmod for partial non-matches"
+varnishtest "Test querymodifier vmod for null params exclusion"
 
 server s1 {
 	rxreq

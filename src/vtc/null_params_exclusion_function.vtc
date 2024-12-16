@@ -1,4 +1,4 @@
-varnishtest "Test querymodifier vmod for null params inclusion"
+varnishtest "Test querymodifier vmod for null params using the excludeparams function"
 
 server s1 {
 	rxreq
@@ -12,7 +12,7 @@ varnish v1 -vcl+backend {
 
 	sub vcl_recv {
 		std.syslog(180, "querymodifier before: " + req.url);
-		set req.url = querymodifier.modifyparams(url=req.url, params="", exclude_params=false);
+		set req.url = querymodifier.excludeparams(url=req.url, params="");
 		std.syslog(180, "querymodifier after: " + req.url);
 	}
 } -start
@@ -21,12 +21,8 @@ client c1 {
 	txreq -url "/feed/?id=1&d=2&another=3"
 	rxresp
 	expect resp.status == 200
-
-	txreq -url "/feed/"
-	rxresp
-	expect resp.status == 200
 } -run
 
 varnish v1 -expect n_object == 1
 varnish v1 -expect cache_miss == 1
-varnish v1 -expect cache_hit == 1
+varnish v1 -expect cache_hit == 0
