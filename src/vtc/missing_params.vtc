@@ -4,6 +4,10 @@ server s1 {
 	rxreq
 	txresp -body "OK1"
 	expect req.url == "/feed/?q"
+
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/sitemap.xml"
 } -start
 
 varnish v1 -vcl+backend {
@@ -26,8 +30,13 @@ client c1 {
 	txreq -url "/feed/?not=1&another=2&q="
 	rxresp
 	expect resp.status == 200
+
+	# This will just return the same URL since there are no parameters.
+	txreq -url "/sitemap.xml"
+	rxresp
+	expect resp.status == 200
 } -run
 
-varnish v1 -expect n_object == 1
-varnish v1 -expect cache_miss == 1
+varnish v1 -expect n_object == 2
+varnish v1 -expect cache_miss == 2
 varnish v1 -expect cache_hit == 1
