@@ -98,19 +98,24 @@ VCL_STRING vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
 
     CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
 
-    // Return if the URL is NULL.
+    // Return if the URI is NULL.
     if (uri == NULL) {
         VRT_fail(ctx, "uri is NULL");
         return NULL;
     }
 
-    // Return if there's no query string.
+    // Check if there is a query string.
     query_str = strchr(uri, '?');
     if (query_str == NULL) {
-        return uri;
+        char *ws_uri = WS_Copy(ctx->ws, uri, strlen(uri) + 1);
+        if (ws_uri == NULL) {
+            VRT_fail(ctx,
+                     "WS_Copy: out of workspace when returning unmodified URI");
+            return NULL;
+        }
+        return ws_uri;
     }
 
-    // Copy the base URL up to '?' into the workspace.
     size_t base_uri_len = query_str - uri;
     size_t query_str_len = strlen(query_str + 1); // +1 to skip '?'
     size_t new_uri_max_len =
@@ -129,13 +134,12 @@ VCL_STRING vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
     // Skip past the '?' to get the query string.
     query_str = query_str + 1;
 
-    // If there are no query params, return the URL.
+    // If there are no query params, return the base URI from workspace.
     if (*query_str == '\0') {
         return new_uri;
     }
 
-    // Check if params_in is an empty string and if so, return only
-    // the URL which removes all query params.
+    // If params_in is NULL or empty, remove all query params.
     if (params_in == NULL || *params_in == '\0') {
         return new_uri;
     }
@@ -168,7 +172,7 @@ VCL_STRING vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
     // Tokenize the query string into parameters.
     no_param = tokenize_querystring(ctx, &head, query_str_copy);
     if (no_param < 0) {
-        VRT_fail(ctx, "tokensize_querystring: no_param: out of workspace");
+        VRT_fail(ctx, "tokenize_querystring failed");
         return NULL;
     }
 
