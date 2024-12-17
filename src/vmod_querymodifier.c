@@ -47,7 +47,6 @@ static int tokenize_querystring(VRT_CTX, query_param_t **result,
         return -1;
     }
 
-    // Tokenize the query parameters into an array.
     for (param_str = strtok_r(query_str, "&", &save_ptr); param_str;
          param_str = strtok_r(NULL, "&", &save_ptr)) {
 
@@ -57,10 +56,14 @@ static int tokenize_querystring(VRT_CTX, query_param_t **result,
             return -1;
         }
 
-        params_array[no_param].name = param_str;
-        params_array[no_param].value = strchr(param_str, '=');
-        if (params_array[no_param].value) {
-            *(params_array[no_param].value++) = '\0';
+        char *eq = strchr(param_str, '=');
+        if (eq != NULL) {
+            *eq = '\0';
+            params_array[no_param].name = param_str;
+            params_array[no_param].value = eq + 1;
+        } else {
+            params_array[no_param].name = param_str;
+            params_array[no_param].value = NULL;
         }
         no_param++;
     }
