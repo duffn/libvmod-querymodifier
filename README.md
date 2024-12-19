@@ -76,6 +76,22 @@ Fork, code, and PR! See build instructions above.
 
 I'm happy to review any PRs. Any bug reports are also welcome.
 
+### Debugging
+
+The module can also be built with [`AddressSanitizer`](https://github.com/google/sanitizers/wiki/AddressSanitizer) support.
+
+It is recommended that when developing on the module, you build with `AddressSanitizer` support enabled in order to help identify any memory issues with the VMOD.
+
+In order to build the module with this enabled, run the `bootstrap` script with `--enable-asan`. 
+
+```
+./bootstrap --enable-asan
+```
+
+There are also some scripts in the `debug` directory to assist. Navigate to the `debug` directory and run `docker compose up --build` in order to build the module with ASan support as well as with a backend `nginx` to field example requests.
+
+_Note_: Do not use the module built with ASan support in production. This is meant for development purposes only.
+
 ## Acknowledgements
 
 - The NY Times [`libvmod-queryfilter` VMOD](https://github.com/nytimes/libvmod-queryfilter/) for insipiration.
