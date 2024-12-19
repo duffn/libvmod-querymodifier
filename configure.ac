@@ -18,6 +18,23 @@ AC_ARG_WITH([rst2man],
 	[RST2MAN="$withval"],
 	[AC_CHECK_PROGS(RST2MAN, [rst2man rst2man.py], [])])
 
+AC_ARG_ENABLE([asan],
+	AS_HELP_STRING([--enable-asan],
+		[enable address sanitizer (default is NO)]),
+	[
+		ASAN_FLAGS="-fsanitize-recover=address"
+		AC_DEFINE([ENABLE_ASAN], [1],
+			[Define to 1 if ASAN sanitizer is enabled.])
+	], [])
+
+if test -n "$ASAN_FLAGS"; then
+	AX_CHECK_COMPILE_FLAG([$ASAN_FLAGS -fsanitize-address-use-after-scope],
+		[ASAN_FLAGS="$ASAN_FLAGS -fsanitize-address-use-after-scope"],
+		[])
+fi
+
+CFLAGS="$CFLAGS $ASAN_FLAGS"
+LDFLAGS="$LDFLAGS $ASAN_FLAGS"
 VARNISH_PREREQ([7.0.0])
 VARNISH_VMODS([querymodifier])
 
