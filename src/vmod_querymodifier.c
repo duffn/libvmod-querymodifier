@@ -33,11 +33,9 @@ static int tokenize_querystring(VRT_CTX, query_param_t **result,
 
     *result = NULL;
 
-    if (query_str == NULL) {
-        VRT_fail(ctx, "query_str is NULL");
-        *result = NULL;
-        return -1;
-    }
+    CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+    CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
+    AN(query_str);
 
     query_param_t *params_array =
         WS_Alloc(ctx->ws, MAX_QUERY_PARAMS * sizeof(query_param_t));
@@ -87,6 +85,9 @@ static int parse_filter_params(VRT_CTX, const char *params_in,
     char *saveptr;
     char *params_copy;
     size_t count = 0;
+
+    CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+    CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
 
     if (params_in == NULL || *params_in == '\0') {
         *num_filter_params = 0;
@@ -157,6 +158,12 @@ static char *rebuild_query_string(VRT_CTX, const char *uri_base,
     struct vsb *vsb = VSB_new_auto();
     char sep = '?';
 
+    CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+    CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
+    AN(uri_base);
+    AN(params);
+    AN(filter_params);
+
     if (vsb == NULL) {
         VRT_fail(ctx, "VSB_new_auto failed");
         return NULL;
@@ -210,6 +217,7 @@ VCL_STRING
 vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
                   VCL_BOOL exclude_params) {
     CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+    CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
 
     // Return if the URI is NULL
     if (uri == NULL) {
