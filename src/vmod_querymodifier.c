@@ -225,52 +225,33 @@ vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
         return NULL;
     }
 
-    // Check for existing query string
-    char *query_str = strchr(uri, '?');
-    if (query_str == NULL) {
-        char *ws_uri = WS_Copy(ctx->ws, uri, strlen(uri) + 1);
-        if (ws_uri == NULL) {
-            VRT_fail(ctx,
-                     "WS_Copy: out of workspace when returning unmodified URI");
-            return NULL;
-        }
-        return ws_uri;
-    }
-
-    size_t base_uri_len = query_str - uri;
-    char base_uri[base_uri_len + 1];
-    memcpy(base_uri, uri, base_uri_len);
-    base_uri[base_uri_len] = '\0';
-
-    // Move past the '?'
-    query_str = query_str + 1;
-
-    // If no query params, return base_uri
-    if (*query_str == '\0') {
-        char *ws_uri = WS_Copy(ctx->ws, base_uri, base_uri_len + 1);
-        if (ws_uri == NULL) {
-            VRT_fail(ctx, "WS_Copy: out of workspace");
-            return NULL;
-        }
-        return ws_uri;
-    }
-
-    if (params_in == NULL || *params_in == '\0') {
-        char *ws_uri = WS_Copy(ctx->ws, base_uri, base_uri_len + 1);
-        if (!ws_uri) {
-            VRT_fail(ctx, "WS_Copy: out of workspace");
-            return NULL;
-        }
-        return ws_uri;
-    }
-
-    char *query_str_copy = WS_Copy(ctx->ws, query_str, strlen(query_str) + 1);
-    if (!query_str_copy) {
-        VRT_fail(ctx, "WS_Copy: query_str_copy: out of workspace");
+    char *uri_buf = WS_Copy(ctx->ws, uri, strlen(uri) + 1);
+    if (!uri_buf) {
+        VRT_fail(ctx, "WS_Copy: uri_buf: out of workspace");
         return NULL;
     }
 
-    // Parse filter parameters
+    char *query_str = strchr(uri_buf, '?');
+    // No query string present so return the base URI
+    if (query_str == NULL) {
+        return uri_buf;
+    }
+
+    // Move past the '?'
+    *query_str = '\0';
+    query_str++;
+
+    // If no query params present, return just the base URI
+    if (*query_str == '\0') {
+        return uri_buf;
+    }
+
+    // If params_in is NULL or empty, remove all query params and just return
+    // base URI
+    if (params_in == NULL || *params_in == '\0') {
+        return uri_buf;
+    }
+
     char *filter_params[MAX_FILTER_PARAMS];
     size_t num_filter_params = 0;
     if (parse_filter_params(ctx, params_in, filter_params, &num_filter_params) <
@@ -279,22 +260,17 @@ vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
     }
 
     query_param_t *head;
-    int no_param = tokenize_querystring(ctx, &head, query_str_copy);
+    int no_param = tokenize_querystring(ctx, &head, query_str);
     if (no_param < 0) {
-        VRT_fail(ctx, "tokenize_querystring failed");
         return NULL;
     }
 
+    // No parameters after tokenization means just return the base URI
     if (no_param == 0) {
-        char *ws_uri = WS_Copy(ctx->ws, base_uri, base_uri_len + 1);
-        if (!ws_uri) {
-            VRT_fail(ctx, "WS_Copy: out of workspace");
-            return NULL;
-        }
-        return ws_uri;
+        return uri_buf;
     }
 
-    return rebuild_query_string(ctx, base_uri, head, (size_t)no_param,
+    return rebuild_query_string(ctx, uri_buf, head, (size_t)no_param,
                                 filter_params, num_filter_params,
                                 exclude_params);
 }
