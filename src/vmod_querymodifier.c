@@ -23,7 +23,7 @@ typedef struct query_param {
  * @param ctx The Varnish context.
  * @param result The array of query parameters.
  * @param query_str The query string to tokenize.
- * @return The number of query parameters.
+ * @return The number of query parameters or -1 on error.
  */
 static int tokenize_querystring(VRT_CTX, query_param_t **result,
                                 char *query_str) {
@@ -73,137 +73,105 @@ static int tokenize_querystring(VRT_CTX, query_param_t **result,
 }
 
 /**
- * This function modifies the query string of a URL by including or excluding
- * query parameters based on the input parameters.
- * @param ctx The Varnish context.
- * @param uri The URL to modify.
- * @param params_in The query parameters to include or exclude.
- * @param exclude_params If true, exclude the parameters in params_in. If false,
- * include the parameters in params_in.
+ * Tokenize and parse the filter parameters from params_in into filter_params
+ * array.
+ * @param ctx Varnish context
+ * @param params_in Comma-separated filter parameter names
+ * @param filter_params Output array of parameter names
+ * @param num_filter_params Output number of parsed filter parameters
+ * @return 0 on success, -1 on error
  */
-VCL_STRING vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
-                             VCL_BOOL exclude_params) {
+static int parse_filter_params(VRT_CTX, const char *params_in,
+                               char **filter_params,
+                               size_t *num_filter_params) {
     char *saveptr;
-    char *new_uri;
-    char *new_uri_end;
-    char *query_str;
-    char *params;
-    query_param_t *head;
-    query_param_t *current;
-    char *filter_params[MAX_FILTER_PARAMS];
-    int num_filter_params = 0;
-    int i;
-    int no_param;
+    char *params_copy;
+    size_t count = 0;
+
+    if (params_in == NULL || *params_in == '\0') {
+        *num_filter_params = 0;
+        return 0;
+    }
+
+    params_copy = WS_Copy(ctx->ws, params_in, strlen(params_in) + 1);
+    if (!params_copy) {
+        VRT_fail(ctx, "WS_Copy: params_copy: out of workspace");
+        return -1;
+    }
+
+    for (char *filter_name = strtok_r(params_copy, ",", &saveptr); filter_name;
+         filter_name = strtok_r(NULL, ",", &saveptr)) {
+
+        if (count >= MAX_FILTER_PARAMS) {
+            VRT_fail(ctx, "Exceeded maximum number of filter parameters");
+            return -1;
+        }
+        filter_params[count++] = filter_name;
+    }
+
+    *num_filter_params = count;
+    return 0;
+}
+
+/**
+ * Determine if a given parameter should be included based on the exclude_params
+ * flag and the list of filtered parameters.
+ * @param param_name The query parameter name to check
+ * @param filter_params Array of filter parameter names
+ * @param num_filter_params Number of filter parameters
+ * @param exclude_params If true, parameters in filter_params are excluded; else
+ * included
+ * @return 1 if parameter should be included, 0 otherwise
+ */
+static int should_include_param(const char *param_name, char **filter_params,
+                                size_t num_filter_params,
+                                VCL_BOOL exclude_params) {
+    int match = 0;
+
+    for (size_t i = 0; i < num_filter_params; i++) {
+        if (strcmp(param_name, filter_params[i]) == 0) {
+            match = 1;
+            break;
+        }
+    }
+
+    return exclude_params ? !match : match;
+}
+
+/**
+ * Rebuild the query string by including or excluding parameters as per filters.
+ * @param ctx Varnish context
+ * @param uri_base The portion of the URI before the query string
+ * @param params The array of tokenized query parameters
+ * @param param_count The number of query parameters
+ * @param filter_params The array of filter parameter names
+ * @param num_filter_params The number of filter parameters
+ * @param exclude_params Whether to exclude or include params_in
+ * @return A pointer to the rebuilt URI from workspace or NULL on error
+ */
+static char *rebuild_query_string(VRT_CTX, const char *uri_base,
+                                  query_param_t *params, size_t param_count,
+                                  char **filter_params,
+                                  size_t num_filter_params,
+                                  VCL_BOOL exclude_params) {
+    struct vsb *vsb = VSB_new_auto();
     char sep = '?';
 
-    CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
-
-    // Return if the URI is NULL.
-    if (uri == NULL) {
-        VRT_fail(ctx, "uri is NULL");
-        return NULL;
-    }
-
-    // Check if there is a query string.
-    query_str = strchr(uri, '?');
-    if (query_str == NULL) {
-        char *ws_uri = WS_Copy(ctx->ws, uri, strlen(uri) + 1);
-        if (ws_uri == NULL) {
-            VRT_fail(ctx,
-                     "WS_Copy: out of workspace when returning unmodified URI");
-            return NULL;
-        }
-        return ws_uri;
-    }
-
-    size_t base_uri_len = query_str - uri;
-    size_t query_str_len = strlen(query_str + 1); // +1 to skip '?'
-    size_t new_uri_max_len =
-        base_uri_len + query_str_len + 2; // +2 for '?' and '\0'
-
-    new_uri = WS_Alloc(ctx->ws, new_uri_max_len);
-    if (new_uri == NULL) {
-        VRT_fail(ctx, "WS_Alloc: new_uri: out of workspace");
-        return NULL;
-    }
-
-    memcpy(new_uri, uri, base_uri_len);
-    new_uri[base_uri_len] = '\0';
-    new_uri_end = new_uri + base_uri_len;
-
-    // Skip past the '?' to get the query string.
-    query_str = query_str + 1;
-
-    // If there are no query params, return the base URI from workspace.
-    if (*query_str == '\0') {
-        return new_uri;
-    }
-
-    // If params_in is NULL or empty, remove all query params.
-    if (params_in == NULL || *params_in == '\0') {
-        return new_uri;
-    }
-
-    // Copy the query string to the workspace.
-    char *query_str_copy = WS_Copy(ctx->ws, query_str, strlen(query_str) + 1);
-    if (!query_str_copy) {
-        VRT_fail(ctx, "WS_Copy: query_str_copy: out of workspace");
-        return NULL;
-    }
-
-    // Copy the params_in to the workspace.
-    params = WS_Copy(ctx->ws, params_in, strlen(params_in) + 1);
-    if (!params) {
-        VRT_fail(ctx, "WS_Copy: params: out of workspace");
-        return NULL;
-    }
-
-    // Tokenize params_in into filter_params array.
-    num_filter_params = 0;
-    for (char *filter_name = strtok_r(params, ",", &saveptr); filter_name;
-         filter_name = strtok_r(NULL, ",", &saveptr)) {
-        if (num_filter_params >= MAX_FILTER_PARAMS) {
-            VRT_fail(ctx, "Exceeded maximum number of filter parameters");
-            return NULL;
-        }
-        filter_params[num_filter_params++] = filter_name;
-    }
-
-    // Tokenize the query string into parameters.
-    no_param = tokenize_querystring(ctx, &head, query_str_copy);
-    if (no_param < 0) {
-        VRT_fail(ctx, "tokenize_querystring failed");
-        return NULL;
-    }
-
-    if (no_param == 0) {
-        return new_uri;
-    }
-
-    struct vsb *vsb = VSB_new_auto();
     if (vsb == NULL) {
         VRT_fail(ctx, "VSB_new_auto failed");
         return NULL;
     }
 
-    VSB_bcat(vsb, uri, base_uri_len);
+    VSB_cat(vsb, uri_base);
 
-    // Iterate through the query parameters.
-    for (i = 0, current = head; i < no_param; ++i, ++current) {
-        int match = 0;
-        for (int j = 0; j < num_filter_params; ++j) {
-            if (strcmp(current->name, filter_params[j]) == 0) {
-                match = 1;
-                break;
-            }
-        }
-
-        // Include or exclude parameters based upon the argument.
-        int include = exclude_params ? !match : match;
-        if (include) {
+    for (size_t i = 0; i < param_count; i++) {
+        query_param_t *current = &params[i];
+        if (should_include_param(current->name, filter_params,
+                                 num_filter_params, exclude_params)) {
             if (current->value && (*current->value) != '\0') {
                 VSB_printf(vsb, "%c%s=%s", sep, current->name, current->value);
             } else {
+                // Parameter with no value
                 VSB_printf(vsb, "%c%s", sep, current->name);
             }
             sep = '&';
@@ -216,7 +184,6 @@ VCL_STRING vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
         return NULL;
     }
 
-    // Copy the final URI from the VSB into the workspace
     const char *final_uri = VSB_data(vsb);
     size_t final_len = VSB_len(vsb);
     char *ws_uri = WS_Copy(ctx->ws, final_uri, final_len + 1);
@@ -231,13 +198,108 @@ VCL_STRING vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
 }
 
 /**
+ * This function modifies the query string of a URL by including or excluding
+ * query parameters based on the input parameters.
+ * @param ctx The Varnish context.
+ * @param uri The URL to modify.
+ * @param params_in The query parameters to include or exclude.
+ * @param exclude_params If true, exclude the parameters in params_in. If false,
+ * include the parameters in params_in.
+ */
+VCL_STRING
+vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
+                  VCL_BOOL exclude_params) {
+    CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+
+    // Return if the URI is NULL
+    if (uri == NULL) {
+        VRT_fail(ctx, "uri is NULL");
+        return NULL;
+    }
+
+    // Check for existing query string
+    char *query_str = strchr(uri, '?');
+    if (query_str == NULL) {
+        char *ws_uri = WS_Copy(ctx->ws, uri, strlen(uri) + 1);
+        if (ws_uri == NULL) {
+            VRT_fail(ctx,
+                     "WS_Copy: out of workspace when returning unmodified URI");
+            return NULL;
+        }
+        return ws_uri;
+    }
+
+    size_t base_uri_len = query_str - uri;
+    char base_uri[base_uri_len + 1];
+    memcpy(base_uri, uri, base_uri_len);
+    base_uri[base_uri_len] = '\0';
+
+    // Move past the '?'
+    query_str = query_str + 1;
+
+    // If no query params, return base_uri
+    if (*query_str == '\0') {
+        char *ws_uri = WS_Copy(ctx->ws, base_uri, base_uri_len + 1);
+        if (ws_uri == NULL) {
+            VRT_fail(ctx, "WS_Copy: out of workspace");
+            return NULL;
+        }
+        return ws_uri;
+    }
+
+    if (params_in == NULL || *params_in == '\0') {
+        char *ws_uri = WS_Copy(ctx->ws, base_uri, base_uri_len + 1);
+        if (!ws_uri) {
+            VRT_fail(ctx, "WS_Copy: out of workspace");
+            return NULL;
+        }
+        return ws_uri;
+    }
+
+    char *query_str_copy = WS_Copy(ctx->ws, query_str, strlen(query_str) + 1);
+    if (!query_str_copy) {
+        VRT_fail(ctx, "WS_Copy: query_str_copy: out of workspace");
+        return NULL;
+    }
+
+    // Parse filter parameters
+    char *filter_params[MAX_FILTER_PARAMS];
+    size_t num_filter_params = 0;
+    if (parse_filter_params(ctx, params_in, filter_params, &num_filter_params) <
+        0) {
+        return NULL;
+    }
+
+    query_param_t *head;
+    int no_param = tokenize_querystring(ctx, &head, query_str_copy);
+    if (no_param < 0) {
+        VRT_fail(ctx, "tokenize_querystring failed");
+        return NULL;
+    }
+
+    if (no_param == 0) {
+        char *ws_uri = WS_Copy(ctx->ws, base_uri, base_uri_len + 1);
+        if (!ws_uri) {
+            VRT_fail(ctx, "WS_Copy: out of workspace");
+            return NULL;
+        }
+        return ws_uri;
+    }
+
+    return rebuild_query_string(ctx, base_uri, head, (size_t)no_param,
+                                filter_params, num_filter_params,
+                                exclude_params);
+}
+
+/**
  * Include the specified query parameters in the URL.
  * @param ctx The Varnish context.
  * @param uri The URL to modify.
  * @param params The query parameters to include.
  * @return The modified URL.
  */
-VCL_STRING vmod_includeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
+VCL_STRING
+vmod_includeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
     return vmod_modifyparams(ctx, uri, params, 0);
 }
 
@@ -248,6 +310,7 @@ VCL_STRING vmod_includeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
  * @param params The query parameters to exclude.
  * @return The modified URL.
  */
-VCL_STRING vmod_excludeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
+VCL_STRING
+vmod_excludeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
     return vmod_modifyparams(ctx, uri, params, 1);
 }
