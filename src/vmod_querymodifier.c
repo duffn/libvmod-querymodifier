@@ -298,3 +298,14 @@ VCL_STRING
 vmod_excludeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
     return vmod_modifyparams(ctx, uri, params, 1);
 }
+
+/**
+ * Exclude all query parameters from the URL.
+ * @param ctx The Varnish context.
+ * @param uri The URL to modify.
+ * @return The modified URL.
+ */
+VCL_STRING
+vmod_excludeallparams(VRT_CTX, VCL_STRING uri) {
+    return vmod_modifyparams(ctx, uri, NULL, 1);
+}
