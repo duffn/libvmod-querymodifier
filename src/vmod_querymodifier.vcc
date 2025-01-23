@@ -38,3 +38,13 @@ Example
     ::
 
         set req.url = querymodifier.includeparams(req.url, "ts,v");
+
+$Function STRING excludeallparams(STRING url)
+
+Description
+    The function excludes all parameters in the URL.
+
+Example
+    ::
+
+        set req.url = querymodifier.excludeallparams(req.url);
