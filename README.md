@@ -50,6 +50,8 @@ Remove all query parameters by passing in an empty string.
 ```
 import querymodifier;
 set req.url = querymodifier.modifyparams(url=req.url, params="", exclude_params=true);
+# Or use the conveniecen function, `excludeallparams`.
+# set req.url = querymodifier.excludeallparams(url=req.url);
 
 # Original URL: example.com/?search=name&ts=123456789&v=123456789&id=987654321
 # Modified URL: example.com/
