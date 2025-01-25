@@ -9,12 +9,14 @@ RUN apt-get update && \
     automake \
     python3-docutils \
     autoconf-archive \
-    libasan8
+    libasan8 \
+    gdb \
+    procps
 
 WORKDIR /
 
 COPY . /libvmod-querymodifier
 RUN cd /libvmod-querymodifier \
-	&& ./bootstrap --enable-asan \
+	&& ./bootstrap --enable-asan CFLAGS="-g -O0" \
 	&& make \
 	&& make install
