@@ -11,6 +11,11 @@ services:
     volumes:
       - ./default.vcl:/etc/varnish/default.vcl
       - ./entrypoint.sh:/entrypoint.sh
+      - ./.gdbinit:/root/.gdbinit
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
   nginx:
     image: nginx:1.27-alpine
     ports:
