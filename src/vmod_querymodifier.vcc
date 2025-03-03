@@ -48,3 +48,13 @@ Example
     ::
 
         set req.url = querymodifier.excludeallparams(req.url);
+
+$Function STRING removeallquerystring(STRING url)
+
+Description
+    The function removes the entire query string from the URL, i.e. everything after and including the '?'.
+
+Example
+    ::
+
+        set req.url = querymodifier.removeallquerystring(req.url);

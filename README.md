@@ -43,7 +43,7 @@ set req.url = querymodifier.excludparams(url=req.url, params="ts,v");
 # Modified URL: example.com/?search=name&id=987654321
 ```
 
-### Remove all
+### Remove all valid query parameters
 
 Remove all query parameters by passing in an empty string.
 
@@ -54,6 +54,19 @@ set req.url = querymodifier.modifyparams(url=req.url, params="", exclude_params=
 # set req.url = querymodifier.excludeallparams(url=req.url);
 
 # Original URL: example.com/?search=name&ts=123456789&v=123456789&id=987654321
+# Modified URL: example.com/
+```
+
+### Remove all query string
+
+Remove all  of the query string, i.e. everything after, and including the `?` regardless of if
+the are valid `name=value` query string parameters.
+
+```
+import querymodifier;
+set req.url = querymodifier.removeallquerystring(url=req.url);
+
+# Original URL: example.com/?123456
 # Modified URL: example.com/
 ```
 
