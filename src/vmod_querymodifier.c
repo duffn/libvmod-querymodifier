@@ -309,3 +309,34 @@ VCL_STRING
 vmod_excludeallparams(VRT_CTX, VCL_STRING uri) {
     return vmod_modifyparams(ctx, uri, NULL, 1);
 }
+
+/**
+ * Remove the entire query string from the URL, regardless of its content.
+ * This function will remove everything after (and including) the '?'.
+ * @param ctx The Varnish context.
+ * @param uri The URL to modify.
+ * @return The URL without any query parameters.
+ */
+VCL_STRING
+vmod_removeallquerystring(VRT_CTX, VCL_STRING uri) {
+    CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
+    CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
+
+    if (uri == NULL) {
+        VRT_fail(ctx, "uri is NULL");
+        return NULL;
+    }
+
+    char *uri_buf = WS_Copy(ctx->ws, uri, strlen(uri) + 1);
+    if (!uri_buf) {
+        VRT_fail(ctx, "WS_Copy: uri_buf: out of workspace");
+        return NULL;
+    }
+
+    char *query = strchr(uri_buf, '?');
+    if (query != NULL) {
+        *query = '\0';
+    }
+
+    return uri_buf;
+}

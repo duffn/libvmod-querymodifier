@@ -1,0 +1,38 @@
+varnishtest "Test querymodifier vmod for proper removal of all query parameters"
+
+server s1 {
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/feed/"
+
+	rxreq
+	txresp -body "OK1"
+	expect req.url == "/feed/"
+} -start
+
+varnish v1 -vcl+backend {
+	import std;
+	import querymodifier;
+
+	sub vcl_hash {
+		std.syslog(180, "querymodifier before: " + req.url);
+		set req.url = querymodifier.removeallquerystring(url=req.url);
+		std.syslog(180, "querymodifier after: " + req.url);
+	}
+} -start
+
+client c1 {
+	txreq -url "/feed/?1730210988319&ts=1730210988319"
+	rxresp
+	expect resp.status == 200
+
+	# This one will be cached as all of the query params are excluded, even invalid ones.
+	txreq -url "/feed/?1730210982229"
+	rxresp
+	expect resp.status == 200
+} -run
+
+varnish v1 -expect n_object == 1
+varnish v1 -expect cache_miss == 1
+varnish v1 -expect cache_hit == 1
+
