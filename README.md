@@ -76,7 +76,7 @@ See the tests for more parameter edge cases.
 
 ## Building
 
-This module is primarily manually tested with Varnish 7.6, but also includes vtc tests for version 7.5.
+This module is primarily manually tested with Varnish 7.7, but also includes vtc tests for version 7.5 and 7.6.
 
 ```
 ./bootstrap
