@@ -1,4 +1,4 @@
-FROM varnish:7.7.1
+FROM varnish:7.7.3
 
 USER root
 
@@ -11,7 +11,8 @@ RUN apt-get update && \
     autoconf-archive \
     libasan8 \
     gdb \
-    procps
+    procps \
+    && dpkg -i /pkgs/*varnish-dev*.deb || apt-get -f install -y
 
 WORKDIR /
 
