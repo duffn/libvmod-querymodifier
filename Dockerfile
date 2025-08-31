@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y \
 	libtool \
 	automake \
 	autoconf-archive \
-	python3-docutils
+	python3-docutils \
+	&& dpkg -i /pkgs/*varnish-dev*.deb || apt-get -f install -y
 
 WORKDIR /
 COPY . .
