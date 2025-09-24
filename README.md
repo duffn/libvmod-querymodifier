@@ -2,15 +2,6 @@
 
 This is a simple Varnish VMOD that allows modification of a URL's query parameters by including or excluding specified parameters and their values.
 
-## Status
-
-ℹ️ This VMOD is currently exploratory and being actively developed and tested. It has not been run in any production environment yet,
-so you should not yet use this in a production environment. 
-
-If you need to manipulate querystrings in production, you should currently explore [`libvmod-queryfilter`](https://github.com/nytimes/libvmod-queryfilter/) or [`vmod-querystring`](https://git.sr.ht/~dridi/vmod-querystring).
-
-If instead you just want to contribute to a friendly VMOD repository, continue on!
-
 ## Usage
 
 ### Inclusion
@@ -152,6 +143,13 @@ Thread 101 "cache-worker" hit Breakpoint 1, vmod_modifyparams (ctx=0xffff855cd9b
 - dridi [`vmod-querystring` VMOD](https://git.sr.ht/~dridi/vmod-querystring) for insipiration.
 - [`vcdk`](https://github.com/nigoroll/vcdk/) for the project structure.
 - Guillaume Quintard for the [VMOD tutorial](https://info.varnish-software.com/blog/creating-a-vmod-vmod-str).
+
+## Alternatives
+
+Some alternatives to this VMOD are:
+
+- [`libvmod-queryfilter`](https://github.com/nytimes/libvmod-queryfilter/)
+- [`vmod-querystring`](https://git.sr.ht/~dridi/vmod-querystring)
 
 ## License
 
