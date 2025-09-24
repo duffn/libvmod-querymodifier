@@ -23,6 +23,7 @@ jobs:
           - "7.5"
           - "7.6"
           - "7.7"
+          - "8.0"
 
     concurrency:
       group: ${{ github.ref_name != 'main' && format('{0}-{1}-{2}', github.workflow, github.ref, matrix.varnish_version) || github.sha }}
