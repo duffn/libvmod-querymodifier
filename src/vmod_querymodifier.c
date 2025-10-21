@@ -170,6 +170,11 @@ static char *rebuild_query_string(VRT_CTX, const char *uri_base,
     }
 
     VSB_cat(vsb, uri_base);
+    if (VSB_error(vsb)) {
+        VRT_fail(ctx, "VSB overflow while appending base URI");
+        VSB_destroy(&vsb);
+        return NULL;
+    }
 
     for (size_t i = 0; i < param_count; i++) {
         query_param_t *current = &params[i];
@@ -181,6 +186,13 @@ static char *rebuild_query_string(VRT_CTX, const char *uri_base,
                 // Parameter with no value
                 VSB_printf(vsb, "%c%s", sep, current->name);
             }
+
+            if (VSB_error(vsb)) {
+                VRT_fail(ctx, "VSB overflow while building query string");
+                VSB_destroy(&vsb);
+                return NULL;
+            }
+
             sep = '&';
         }
     }
