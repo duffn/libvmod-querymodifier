@@ -19,6 +19,30 @@ set req.url = querymodifier.includeparams(url=req.url, params="search,id");
 # Modified URL: example.com/?search=name&id=987654321
 ```
 
+### Opt-in parameter ordering
+
+`sortparams` sorts all query parameters without filtering. `includeparams_sorted`
+keeps only the named parameters and sorts those. Both sort by **raw,
+case-sensitive name**. It preserves the order of repeated names (for example,
+`tag=first&tag=second`). It does not decode names or values, sort values, or
+change the existing `includeparams` behavior.
+
+```
+set req.url = querymodifier.sortparams(req.url);
+# Original: /feed/?tag=first&page=2&format=json&tag=second
+# Result:   /feed/?format=json&page=2&tag=first&tag=second
+
+set req.url = querymodifier.includeparams_sorted(req.url, "page,format,tag");
+
+# Original: /feed/?tag=first&page=2&format=json&tag=second&ts=123
+# Result:   /feed/?format=json&page=2&tag=first&tag=second
+```
+
+**Cache safety:** enable this only for routes whose origin treats reordered
+parameters identically. A backend may interpret distinct parameters in order,
+or treat repeated names specially. The VMOD changes the forwarded URL as well
+as the cache key when used on `req.url` in `vcl_recv`.
+
 ### Exclusion
 
 List the parameters that you would like to have _removed_ from the URL. All other query parameters and their values will remain.
@@ -28,7 +52,7 @@ import querymodifier;
 
 set req.url = querymodifier.modifyparams(url=req.url, params="ts,v", exclude_params=true);
 # Or use the convenience function, `excludeparams`.
-set req.url = querymodifier.excludparams(url=req.url, params="ts,v");
+set req.url = querymodifier.excludeparams(url=req.url, params="ts,v");
 
 # Original URL: example.com/?search=name&ts=123456789&v=123456789&id=987654321
 # Modified URL: example.com/?search=name&id=987654321
@@ -67,13 +91,16 @@ See the tests for more parameter edge cases.
 
 ## Building
 
-This module is primarily manually tested with Varnish 7.7, but also includes vtc tests for version 7.5 and 7.6.
+The VTC suite and generated differential tests run against Varnish 8.0.2 in Docker. They also run with a locally built VMOD against Varnish 9.1.
 
 ```
 ./bootstrap
 make
 make check # optionally run tests, recommended.
 sudo make install
+
+# Or build and test against Varnish 8.0.2 with Docker:
+docker build -t querymodifier-test .
 ```
 
 ## Contributing
@@ -81,6 +108,22 @@ sudo make install
 Fork, code, and PR! See build instructions above.
 
 I'm happy to review any PRs. Any bug reports are also welcome.
+
+### Generated differential tests
+
+After `./bootstrap && ./configure && make`, run:
+
+```
+python3 test_querymodifier_generated.py --seed 2026 --cases 200
+```
+
+This generates deterministic requests and compares the built VMOD's forwarded URL
+against an independent Python model through `varnishtest`. It exercises all
+filtering modes and both sorting functions, with duplicate names, empty values,
+encoded names, and extra separators. Change `--seed` to explore other cases;
+failures save a reproducible `querymodifier-failure-<seed>-<batch>.vtc`.
+This is generated testing, not a replay of production traffic or a proof that
+sorting is safe for a particular origin's parameter semantics.
 
 ### Debugging
 

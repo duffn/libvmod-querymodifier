@@ -39,6 +39,34 @@ Example
 
         set req.url = querymodifier.includeparams(req.url, "ts,v");
 
+$Function STRING sortparams(STRING url)
+
+Description
+    Sorts all query parameters by their raw, case-sensitive names without filtering.
+    Duplicate names keep their original order. Values are not decoded or sorted.
+    This is opt-in: use it for cache keys only when the origin treats reordered
+    requests identically. Empty values and extra separators follow the same
+    rebuilding rules as the other functions.
+
+Example
+    ::
+
+        set req.url = querymodifier.sortparams(req.url);
+
+$Function STRING includeparams_sorted(STRING url, STRING params)
+
+Description
+    Like `includeparams`, but sorts retained parameters by their raw, case-sensitive name.
+    Duplicate names keep their original order. Values are not decoded or sorted.
+    This is opt-in because reordering distinct query parameters can change the
+    meaning of a URL for some backends. Do not use it for cache keys until the
+    origin treats the reordered requests identically.
+
+Example
+    ::
+
+        set req.url = querymodifier.includeparams_sorted(req.url, "page,format");
+
 $Function STRING excludeallparams(STRING url)
 
 Description

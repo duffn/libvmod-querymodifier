@@ -154,9 +154,11 @@ static char *rebuild_query_string(VRT_CTX, const char *uri_base,
                                   query_param_t *params, size_t param_count,
                                   char **filter_params,
                                   size_t num_filter_params,
-                                  VCL_BOOL exclude_params) {
+                                  VCL_BOOL exclude_params, VCL_BOOL sort_params) {
     struct vsb *vsb = VSB_new_auto();
     char sep = '?';
+    query_param_t *kept[MAX_QUERY_PARAMS];
+    size_t kept_count = 0;
 
     CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
     CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
@@ -177,24 +179,40 @@ static char *rebuild_query_string(VRT_CTX, const char *uri_base,
     }
 
     for (size_t i = 0; i < param_count; i++) {
-        query_param_t *current = &params[i];
-        if (should_include_param(current->name, filter_params,
+        if (should_include_param(params[i].name, filter_params,
                                  num_filter_params, exclude_params)) {
-            if (current->value && (*current->value) != '\0') {
-                VSB_printf(vsb, "%c%s=%s", sep, current->name, current->value);
-            } else {
-                // Parameter with no value
-                VSB_printf(vsb, "%c%s", sep, current->name);
-            }
-
-            if (VSB_error(vsb)) {
-                VRT_fail(ctx, "VSB overflow while building query string");
-                VSB_destroy(&vsb);
-                return NULL;
-            }
-
-            sep = '&';
+            kept[kept_count++] = &params[i];
         }
+    }
+
+    // Stable sort: duplicate names retain their original order (and values).
+    if (sort_params) {
+        for (size_t i = 1; i < kept_count; i++) {
+            query_param_t *current = kept[i];
+            size_t j = i;
+            while (j > 0 && strcmp(kept[j - 1]->name, current->name) > 0) {
+                kept[j] = kept[j - 1];
+                j--;
+            }
+            kept[j] = current;
+        }
+    }
+
+    for (size_t i = 0; i < kept_count; i++) {
+        query_param_t *current = kept[i];
+        if (current->value && (*current->value) != '\0') {
+            VSB_printf(vsb, "%c%s=%s", sep, current->name, current->value);
+        } else {
+            // Parameter with no value
+            VSB_printf(vsb, "%c%s", sep, current->name);
+        }
+
+        if (VSB_error(vsb)) {
+            VRT_fail(ctx, "VSB overflow while building query string");
+            VSB_destroy(&vsb);
+            return NULL;
+        }
+        sep = '&';
     }
 
     if (VSB_finish(vsb) != 0) {
@@ -225,9 +243,10 @@ static char *rebuild_query_string(VRT_CTX, const char *uri_base,
  * @param exclude_params If true, exclude the parameters in params_in. If false,
  * include the parameters in params_in.
  */
-VCL_STRING
-vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
-                  VCL_BOOL exclude_params) {
+static VCL_STRING
+modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
+             VCL_BOOL exclude_params, VCL_BOOL sort_params,
+             VCL_BOOL sort_only) {
     CHECK_OBJ_NOTNULL(ctx, VRT_CTX_MAGIC);
     CHECK_OBJ_NOTNULL(ctx->ws, WS_MAGIC);
 
@@ -260,7 +279,7 @@ vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
 
     // If params_in is NULL or empty, remove all query params and just return
     // base URI
-    if (params_in == NULL || *params_in == '\0') {
+    if (!sort_only && (params_in == NULL || *params_in == '\0')) {
         return uri_buf;
     }
 
@@ -284,7 +303,13 @@ vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
 
     return rebuild_query_string(ctx, uri_buf, head, (size_t)no_param,
                                 filter_params, num_filter_params,
-                                exclude_params);
+                                exclude_params, sort_params);
+}
+
+VCL_STRING
+vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
+                  VCL_BOOL exclude_params) {
+    return modifyparams(ctx, uri, params_in, exclude_params, 0, 0);
 }
 
 /**
@@ -296,7 +321,18 @@ vmod_modifyparams(VRT_CTX, VCL_STRING uri, VCL_STRING params_in,
  */
 VCL_STRING
 vmod_includeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
-    return vmod_modifyparams(ctx, uri, params, 0);
+    return modifyparams(ctx, uri, params, 0, 0, 0);
+}
+
+VCL_STRING
+vmod_includeparams_sorted(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
+    return modifyparams(ctx, uri, params, 0, 1, 0);
+}
+
+VCL_STRING
+vmod_sortparams(VRT_CTX, VCL_STRING uri) {
+    // With no filter names, exclusion retains every parameter.
+    return modifyparams(ctx, uri, NULL, 1, 1, 1);
 }
 
 /**
@@ -308,7 +344,7 @@ vmod_includeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
  */
 VCL_STRING
 vmod_excludeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
-    return vmod_modifyparams(ctx, uri, params, 1);
+    return modifyparams(ctx, uri, params, 1, 0, 0);
 }
 
 /**
@@ -319,7 +355,7 @@ vmod_excludeparams(VRT_CTX, VCL_STRING uri, VCL_STRING params) {
  */
 VCL_STRING
 vmod_excludeallparams(VRT_CTX, VCL_STRING uri) {
-    return vmod_modifyparams(ctx, uri, NULL, 1);
+    return modifyparams(ctx, uri, NULL, 1, 0, 0);
 }
 
 /**
