@@ -6,4 +6,4 @@ services:
 
   test:
     build: *build
-    command: make check
+    command: ["sh", "-c", "make check && python3 test_querymodifier_generated.py --seed 2026 --cases 200"]

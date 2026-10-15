@@ -100,7 +100,8 @@ make check # optionally run tests, recommended.
 sudo make install
 
 # Or build and test against Varnish 8.0.2 with Docker:
-docker build -t querymodifier-test .
+docker compose build
+docker compose run --rm test
 
 # Build and test against Varnish 9.1 (Debian image):
 docker build -f Dockerfile.debian -t querymodifier-test:9.1 .

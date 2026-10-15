@@ -34,7 +34,7 @@ jobs:
 
       - run: docker compose build --build-arg "VARNISH_VERSION=${{ matrix.varnish_version }}"
 
-      - run: docker compose run test
+      - run: docker compose run --rm test
 
   test-varnish-9-1:
     runs-on: ubuntu-latest

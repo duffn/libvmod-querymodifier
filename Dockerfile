@@ -21,6 +21,4 @@ COPY . .
 RUN ./bootstrap \
     && rm -f src/vcc_querymodifier_if.c src/vcc_querymodifier_if.h \
     && make \
-    && make check \
-    && python3 test_querymodifier_generated.py --seed 2026 --cases 200 \
     && make install
