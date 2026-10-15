@@ -12,7 +12,7 @@ on:
       - reopened
 
 jobs:
-  test:
+  test-alpine:
     runs-on: ubuntu-latest
 
     timeout-minutes: 30
