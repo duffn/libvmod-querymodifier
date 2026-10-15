@@ -35,3 +35,14 @@ jobs:
       - run: docker compose build --build-arg "VARNISH_VERSION=${{ matrix.varnish_version }}"
 
       - run: docker compose run test
+
+  test-varnish-9-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The official 9.1 image is Debian-based; there is no 9.1 Alpine tag.
+      # The Docker build runs make check and the generated differential tests.
+      - run: docker build --file Dockerfile.debian --build-arg VARNISH_VERSION=9.1.0 .

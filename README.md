@@ -91,7 +91,7 @@ See the tests for more parameter edge cases.
 
 ## Building
 
-The VTC suite and generated differential tests run against Varnish 8.0.2 in Docker. They also run with a locally built VMOD against Varnish 9.1.
+The VTC suite and generated differential tests run against Varnish 7.5–8.0 on Alpine and Varnish 9.1 on Debian in CI.
 
 ```
 ./bootstrap
@@ -101,6 +101,9 @@ sudo make install
 
 # Or build and test against Varnish 8.0.2 with Docker:
 docker build -t querymodifier-test .
+
+# Build and test against Varnish 9.1 (Debian image):
+docker build -f Dockerfile.debian -t querymodifier-test:9.1 .
 ```
 
 ## Contributing
