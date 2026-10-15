@@ -1,0 +1,63 @@
+varnishtest "Opt-in sorted inclusion uses stable raw-name ordering for cache keys"
+
+server s1 {
+    rxreq
+    expect req.url == "/feed/?format=json&page=2&tag=first&tag=second"
+    txresp -body "first"
+
+    rxreq
+    expect req.url == "/feed/?format=json&page=2&tag=second&tag=first"
+    txresp -body "second"
+
+    rxreq
+    expect req.url == "/feed/?%74ag=encoded&tag=plain"
+    txresp -body "encoded"
+
+    rxreq
+    expect req.url == "/feed/?a=1&b=2&tag=first&tag=second"
+    txresp -body "all"
+} -start
+
+varnish v1 -vcl+backend {
+    import querymodifier;
+    sub vcl_recv {
+        if (req.http.X-Sort-All) {
+            set req.url = querymodifier.sortparams(req.url);
+        } else {
+            set req.url = querymodifier.includeparams_sorted(req.url, "format,page,tag,%74ag");
+        }
+    }
+} -start
+
+client c1 {
+    txreq -url "/feed/?tag=first&page=2&ts=123&format=json&tag=second"
+    rxresp
+    expect resp.status == 200
+    expect resp.body == "first"
+
+    # Different order of distinct names shares the same object.
+    txreq -url "/feed/?format=json&tag=first&tag=second&page=2&ts=456"
+    rxresp
+    expect resp.body == "first"
+
+    # Duplicate order is significant and must not collide.
+    txreq -url "/feed/?tag=second&page=2&tag=first&format=json"
+    rxresp
+    expect resp.body == "second"
+
+    # Encoded names are sorted as raw bytes, never decoded.
+    txreq -url "/feed/?tag=plain&%74ag=encoded"
+    rxresp
+    expect resp.body == "encoded"
+
+    txreq -url "/feed/?tag=first&b=2&tag=second&a=1" -hdr "X-Sort-All: yes"
+    rxresp
+    expect resp.body == "all"
+
+    txreq -url "/feed/?a=1&tag=first&tag=second&b=2" -hdr "X-Sort-All: yes"
+    rxresp
+    expect resp.body == "all"
+} -run
+
+varnish v1 -expect cache_hit == 2
+varnish v1 -expect cache_miss == 4
