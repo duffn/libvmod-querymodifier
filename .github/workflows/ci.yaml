@@ -36,14 +36,23 @@ jobs:
 
       - run: docker compose run --rm test
 
-  test-varnish-9-1:
+  test-debian:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    strategy:
+      matrix:
+        varnish_version:
+          - "9.1.0"
+
+    concurrency:
+      group: ${{ format('{0}-{1}-{2}-{3}', github.workflow, github.ref, github.job, matrix.varnish_version) }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
 
     steps:
       - uses: actions/checkout@v4
 
       # The official 9.1 image is Debian-based; there is no 9.1 Alpine tag.
-      - run: docker build --file Dockerfile.debian --build-arg VARNISH_VERSION=9.1.0 --tag querymodifier-test:9.1 .
+      - run: docker build --file Dockerfile.debian --build-arg "VARNISH_VERSION=${{ matrix.varnish_version }}" --tag "querymodifier-test:${{ matrix.varnish_version }}" .
 
-      - run: docker run --rm --entrypoint /bin/sh querymodifier-test:9.1 -c 'make check && python3 test_querymodifier_generated.py --seed 2026 --cases 200'
+      - run: docker run --rm --entrypoint /bin/sh "querymodifier-test:${{ matrix.varnish_version }}" -c 'make check && python3 test_querymodifier_generated.py --seed 2026 --cases 200'
