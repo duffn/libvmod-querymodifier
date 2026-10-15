@@ -44,5 +44,6 @@ jobs:
       - uses: actions/checkout@v4
 
       # The official 9.1 image is Debian-based; there is no 9.1 Alpine tag.
-      # The Docker build runs make check and the generated differential tests.
-      - run: docker build --file Dockerfile.debian --build-arg VARNISH_VERSION=9.1.0 .
+      - run: docker build --file Dockerfile.debian --build-arg VARNISH_VERSION=9.1.0 --tag querymodifier-test:9.1 .
+
+      - run: docker run --rm --entrypoint /bin/sh querymodifier-test:9.1 -c 'make check && python3 test_querymodifier_generated.py --seed 2026 --cases 200'

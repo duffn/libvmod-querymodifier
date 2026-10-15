@@ -104,6 +104,8 @@ docker build -t querymodifier-test .
 
 # Build and test against Varnish 9.1 (Debian image):
 docker build -f Dockerfile.debian -t querymodifier-test:9.1 .
+docker run --rm --entrypoint /bin/sh querymodifier-test:9.1 \
+  -c 'make check && python3 test_querymodifier_generated.py --seed 2026 --cases 200'
 ```
 
 ## Contributing
